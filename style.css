@@ -1,0 +1,98 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #121212;
+    color: #ffffff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+}
+
+.container {
+    width: 90%;
+    max-width: 800px;
+    background-color: #282828;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+h1 {
+    text-align: center;
+    color: #1DB954; /* Warna ala Spotify */
+}
+
+.search-box {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+#searchInput {
+    flex-grow: 1;
+    padding: 10px;
+    border: 1px solid #535353;
+    border-radius: 5px;
+    background-color: #3e3e3e;
+    color: #ffffff;
+    font-size: 16px;
+}
+
+#searchButton {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    background-color: #1DB954;
+    color: #ffffff;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#searchButton:hover {
+    background-color: #1ed760;
+}
+
+#player-container {
+    width: 100%;
+    margin-bottom: 20px;
+    aspect-ratio: 16 / 9; /* Untuk menjaga rasio video */
+    background-color: #000;
+}
+
+.result-item {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    margin-bottom: 10px;
+    background-color: #3e3e3e;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.result-item:hover {
+    background-color: #535353;
+}
+
+.result-item img {
+    width: 80px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+    margin-right: 15px;
+}
+
+.result-item .info {
+    flex-grow: 1;
+}
+
+.result-item .title {
+    font-weight: bold;
+}
+
+.result-item .channel {
+    font-size: 0.9em;
+    color: #b3b3b3;
+}
