@@ -39,6 +39,7 @@
             padding: 20px;
             background-color: var(--secondary-bg);
             box-shadow: 0 4px 8px var(--shadow-color);
+            z-index: 10;
         }
 
         #search-form {
@@ -99,6 +100,11 @@
             border-radius: 8px;
             cursor: pointer;
             transition: background-color 0.3s;
+        }
+        
+        .song-item.playing {
+            background-color: var(--tertiary-bg);
+            border-left: 3px solid var(--accent-color);
         }
 
         .song-item:hover {
@@ -170,12 +176,13 @@
 
         /* Music Player */
         .music-player {
-            background-color: var(--secondary-bg);
+            background-color: #181818;
             padding: 15px 20px;
             display: flex;
             flex-direction: column;
             gap: 10px;
             box-shadow: 0 -4px 8px var(--shadow-color);
+            z-index: 10;
         }
 
         .player-top {
@@ -210,26 +217,6 @@
             font-weight: bold;
         }
         
-        .scrolling-text-container {
-            overflow: hidden;
-        }
-        
-        .scrolling-text {
-            display: inline-block;
-            white-space: nowrap;
-        }
-        
-        .scrolling-text.needs-scroll {
-            animation: scroll-text 15s linear infinite;
-        }
-
-        @keyframes scroll-text {
-            0%   { transform: translateX(0%); }
-            10%  { transform: translateX(0%); }
-            90%  { transform: translateX(calc(-100% + 200px)); } /* Adjust 200px to match container width */
-            100% { transform: translateX(calc(-100% + 200px)); }
-        }
-
         #player-artist {
             color: var(--text-secondary);
             font-size: 0.9em;
@@ -253,6 +240,11 @@
         
         .player-controls button:hover {
             color: var(--text-primary);
+        }
+        
+        .player-controls button:disabled {
+            color: #404040;
+            cursor: not-allowed;
         }
 
         .player-controls button svg {
@@ -316,48 +308,16 @@
 
         /* Responsive Design */
         @media (max-width: 600px) {
-            body {
-                font-size: 14px;
-            }
-            .header {
-                padding: 15px;
-            }
-            #search-input {
-                padding: 10px 15px;
-                font-size: 14px;
-            }
-             #search-button {
-                padding: 10px 15px;
-            }
-            .main-content {
-                padding: 15px;
-            }
-            .music-player {
-                padding: 10px;
-            }
-             .player-top {
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-             }
-             .player-info {
-                flex-direction: column;
-                width: 100%;
-             }
-             #player-thumbnail {
-                width: 80px;
-                height: 80px;
-             }
-             .scrolling-text.needs-scroll {
-                 animation-duration: 10s;
-                 animation-name: scroll-text-mobile;
-             }
-            @keyframes scroll-text-mobile {
-                0%   { transform: translateX(0%); }
-                10%  { transform: translateX(0%); }
-                90%  { transform: translateX(calc(-100% + 90vw)); }
-                100% { transform: translateX(calc(-100% + 90vw)); }
-            }
+            body { font-size: 14px; }
+            .header { padding: 15px; }
+            #search-input { padding: 10px 15px; font-size: 14px; }
+            #search-button { padding: 10px 15px; }
+            .main-content { padding: 15px; }
+            .music-player { padding: 10px; }
+            .player-top { flex-direction: column; align-items: stretch; }
+            .player-info {  justify-content: center; }
+            .progress-container { order: -1; }
+            .player-controls { margin: 10px 0; }
         }
     </style>
 </head>
@@ -381,21 +341,19 @@
             <div class="player-info">
                 <img id="player-thumbnail" src="data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=" alt="Album Art">
                 <div class="player-song-details">
-                    <div class="scrolling-text-container">
-                        <div id="player-title" class="scrolling-text">Pilih lagu untuk diputar</div>
-                    </div>
+                    <div id="player-title">Pilih lagu untuk diputar</div>
                     <div id="player-artist">...</div>
                 </div>
             </div>
              <div class="player-controls">
-                <button id="prev-btn" title="Sebelumnya">
+                <button id="prev-btn" title="Sebelumnya" disabled>
                     <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"></path></svg>
                 </button>
-                <button id="play-pause-btn" title="Putar/Jeda">
+                <button id="play-pause-btn" title="Putar/Jeda" disabled>
                     <svg id="play-icon" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg>
                     <svg id="pause-icon" class="hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"></path></svg>
                 </button>
-                <button id="next-btn" title="Berikutnya">
+                <button id="next-btn" title="Berikutnya" disabled>
                     <svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"></path></svg>
                 </button>
             </div>
@@ -408,25 +366,22 @@
         </div>
     </footer>
     
-    <audio id="audio-player"></audio>
+    <audio id="audio-player" preload="metadata"></audio>
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // API Configuration
+            // === [UPDATED] API Configuration ===
             const API_URL = {
-                SEARCH: 'https://api.siputzx.my.id/api/s/youtube',
-                DOWNLOAD_MP3: 'https://api.siputzx.my.id/api/d/ytmp3'
+                SEARCH: 'https://saavn.dev/api/search/songs', // New Search API
+                SONG_DETAILS: 'https://saavn.dev/api/songs'  // New Song Details & Download Link API
             };
 
             // App defaults
             const APP_DEFAULTS = {
                 DEFAULT_SEARCH: 'lagu populer 2025',
-                MAX_RECENT_ITEMS: 30,
-                MAX_QUEUE_ITEMS: 5,
-                STORAGE_KEY: 'recentlyPlayed'
             };
 
-            // Utility functions
+            // === [UPDATED] Utility functions ===
             const UTILS = {
                 formatTime: function(seconds) {
                     if (isNaN(seconds)) return '0:00';
@@ -434,18 +389,14 @@
                     const secs = Math.floor(seconds % 60);
                     return `${minutes}:${secs.toString().padStart(2, '0')}`;
                 },
-                needsScrolling: function(element) {
-                    return element.scrollWidth > element.clientWidth;
-                },
                 formatSong: function(item) {
+                    // Adapt to the new API's data structure
                     return {
-                        id: item.videoId || '',
-                        title: item.title || 'Judul Tidak Dikenal',
-                        artist: (item.author && item.author.name) ? item.author.name : 'Artis Tidak Dikenal',
-                        thumbnail: item.thumbnail || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=',
-                        duration: item.seconds || (item.duration ? item.duration.seconds : 0),
-                        timestamp: item.timestamp || (item.duration ? item.duration.timestamp : '0:00'),
-                        videoUrl: item.url || ''
+                        id: item.id || '',
+                        title: item.name || 'Judul Tidak Dikenal',
+                        artist: item.primaryArtists || 'Artis Tidak Dikenal',
+                        thumbnail: (item.image && item.image[1]?.link) || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=',
+                        duration: item.duration || 0
                     };
                 },
                 formatSearchResults: function(items) {
@@ -453,7 +404,13 @@
                     return items.map(item => this.formatSong(item));
                 },
                 getDownloadUrl: function(data) {
-                    return data && data.result && data.result.download_link ? data.result.download_link : null;
+                    // Adapt to find the download link in the new API's response
+                    const songData = data?.data?.[0];
+                    if (!songData || !songData.downloadUrl) return null;
+                    
+                    // Find the best quality link (usually 320kbps)
+                    const bestQualityUrl = songData.downloadUrl.find(q => q.quality === '320kbps');
+                    return bestQualityUrl?.link || songData.downloadUrl[songData.downloadUrl.length - 1]?.link;
                 }
             };
 
@@ -482,23 +439,28 @@
             // App State
             let songQueue = [];
             let currentTrackIndex = -1;
-            let isPlaying = false;
             let isSeeking = false;
 
-            // --- API Functions ---
+            // --- [UPDATED] API Functions ---
             async function searchSongs(query) {
                 showLoader(true);
                 showError(null);
                 resultsList.innerHTML = '';
+                disableAllControls(true);
                 try {
-                    const response = await fetch(`${API_URL.SEARCH}?q=${encodeURIComponent(query)}`);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    // The new API uses 'query' parameter
+                    const response = await fetch(`${API_URL.SEARCH}?query=${encodeURIComponent(query)}`);
+                    if (!response.ok) throw new Error(`Gagal menghubungi server: Status ${response.status}`);
+                    
                     const data = await response.json();
-                    if (!data.result || data.result.length === 0) {
+                    // The results are nested under data.data.results
+                    const results = data?.data?.results;
+                    if (!results || results.length === 0) {
                        throw new Error('Tidak ada hasil yang ditemukan.');
                     }
-                    songQueue = UTILS.formatSearchResults(data.result);
+                    songQueue = UTILS.formatSearchResults(results);
                     renderSearchResults(songQueue);
+                    disableAllControls(false);
                 } catch (error) {
                     console.error('Search Error:', error);
                     showError(error.message || 'Gagal memuat lagu. Silakan coba lagi.');
@@ -512,27 +474,30 @@
                 
                 currentTrackIndex = index;
                 const song = songQueue[index];
-
+                
+                highlightCurrentSong();
                 updatePlayerUI(song, true); // Update UI with loading state
 
                 try {
-                    const response = await fetch(`${API_URL.DOWNLOAD_MP3}?id=${song.id}`);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    // Fetch song details to get the download link
+                    const response = await fetch(`${API_URL.SONG_DETAILS}/${song.id}`);
+                    if (!response.ok) throw new Error(`Gagal mendapat detail lagu: Status ${response.status}`);
+                    
                     const data = await response.json();
                     const downloadUrl = UTILS.getDownloadUrl(data);
                     
                     if (downloadUrl) {
                         audioPlayer.src = downloadUrl;
-                        audioPlayer.load();
-                        audioPlayer.play().catch(e => console.error("Playback failed:", e));
+                        audioPlayer.play().catch(e => console.error("Gagal memutar audio:", e));
                     } else {
-                        throw new Error('Gagal mendapatkan link unduhan.');
+                        throw new Error('Link unduhan tidak tersedia untuk lagu ini.');
                     }
                 } catch (error) {
-                    console.error('Download Error:', error);
-                    showError(`Gagal memutar "${song.title}". Coba lagu lain.`);
-                    updatePlayerUI(song, false); // Revert loading state
-                    playNext(); // Try playing the next song automatically
+                    console.error('Playback Error:', error);
+                    updatePlayerUI(song, false);
+                    showError(`Gagal memutar "${song.title}". Mencoba lagu berikutnya...`);
+                    // Skip to the next song if one fails
+                    setTimeout(playNext, 1500);
                 }
             }
             
@@ -549,7 +514,7 @@
                             <div class="song-item-title">${song.title}</div>
                             <div class="song-item-artist">${song.artist}</div>
                         </div>
-                        <span class="song-item-duration">${song.timestamp}</span>
+                        <span class="song-item-duration">${UTILS.formatTime(song.duration)}</span>
                     `;
                     li.addEventListener('click', () => {
                         getAndPlaySong(index);
@@ -559,24 +524,11 @@
             }
 
             function updatePlayerUI(song, isLoading = false) {
-                 if (!song) {
-                    playerTitle.textContent = 'Pilih lagu untuk diputar';
-                    playerArtist.textContent = '...';
-                    playerThumbnail.src = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
-                    return;
-                }
+                 if (!song) return;
                 
                 playerTitle.textContent = isLoading ? 'Memuat...' : song.title;
                 playerArtist.textContent = song.artist;
                 playerThumbnail.src = song.thumbnail;
-
-                // Handle scrolling text
-                playerTitle.classList.remove('needs-scroll');
-                setTimeout(() => {
-                    if (UTILS.needsScrolling(playerTitle)) {
-                        playerTitle.classList.add('needs-scroll');
-                    }
-                }, 100);
             }
             
             function togglePlayPause() {
@@ -584,47 +536,45 @@
                     if (songQueue.length > 0) getAndPlaySong(0);
                     return;
                 }
-                
                 if (audioPlayer.paused) {
                     audioPlayer.play().catch(e => console.error("Playback failed:", e));
                 } else {
                     audioPlayer.pause();
                 }
             }
+            
+            function highlightCurrentSong() {
+                document.querySelectorAll('.song-item').forEach((item, index) => {
+                    item.classList.toggle('playing', index === currentTrackIndex);
+                });
+            }
 
             function playNext() {
                 let nextIndex = currentTrackIndex + 1;
-                if (nextIndex >= songQueue.length) {
-                    nextIndex = 0; // Loop back to start
-                }
+                if (nextIndex >= songQueue.length) nextIndex = 0;
                 if (songQueue.length > 0) getAndPlaySong(nextIndex);
             }
 
             function playPrev() {
                 let prevIndex = currentTrackIndex - 1;
-                if (prevIndex < 0) {
-                    prevIndex = songQueue.length - 1; // Loop to end
-                }
+                if (prevIndex < 0) prevIndex = songQueue.length - 1;
                 if (songQueue.length > 0) getAndPlaySong(prevIndex);
             }
 
             function updateProgress() {
-                if (isSeeking) return;
+                if (isSeeking || isNaN(audioPlayer.duration)) return;
                 const { duration, currentTime } = audioPlayer;
-                if (!isNaN(duration)) {
-                    const progressPercent = (currentTime / duration) * 100;
-                    progressBar.value = progressPercent;
-                    currentTimeLabel.textContent = UTILS.formatTime(currentTime);
-                }
+                const progressPercent = (currentTime / duration) * 100;
+                progressBar.value = isNaN(progressPercent) ? 0 : progressPercent;
+                currentTimeLabel.textContent = UTILS.formatTime(currentTime);
+                totalDurationLabel.textContent = UTILS.formatTime(duration);
             }
 
             function setProgress(e) {
-                const width = this.clientWidth;
-                const clickX = e.offsetX;
                 const duration = audioPlayer.duration;
-                if (!isNaN(duration)) {
-                  audioPlayer.currentTime = (clickX / width) * duration;
-                }
+                if (isNaN(duration)) return;
+                const newTime = (e.target.value / 100) * duration;
+                audioPlayer.currentTime = newTime;
             }
 
             function showLoader(visible) {
@@ -632,21 +582,21 @@
             }
             
             function showError(message) {
-                if (message) {
-                    errorMessage.textContent = message;
-                    errorMessage.style.display = 'block';
-                } else {
-                    errorMessage.style.display = 'none';
-                }
+                errorMessage.style.display = message ? 'block' : 'none';
+                errorMessage.textContent = message || '';
             }
             
+            function disableAllControls(disabled) {
+                playPauseBtn.disabled = disabled;
+                nextBtn.disabled = disabled;
+                prevBtn.disabled = disabled;
+            }
+
             // --- Event Listeners ---
             searchForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const query = searchInput.value.trim();
-                if (query) {
-                    searchSongs(query);
-                }
+                if (query) searchSongs(query);
             });
             
             playPauseBtn.addEventListener('click', togglePlayPause);
@@ -654,37 +604,24 @@
             prevBtn.addEventListener('click', playPrev);
 
             audioPlayer.addEventListener('play', () => {
-                isPlaying = true;
                 playIcon.classList.add('hidden');
                 pauseIcon.classList.remove('hidden');
                 updatePlayerUI(songQueue[currentTrackIndex]);
             });
 
             audioPlayer.addEventListener('pause', () => {
-                isPlaying = false;
                 playIcon.classList.remove('hidden');
                 pauseIcon.classList.add('hidden');
             });
             
             audioPlayer.addEventListener('ended', playNext);
-            
             audioPlayer.addEventListener('timeupdate', updateProgress);
-
-            audioPlayer.addEventListener('loadedmetadata', () => {
-                const duration = audioPlayer.duration;
-                progressBar.max = 100; // Reset max for percentage
-                totalDurationLabel.textContent = UTILS.formatTime(duration);
-            });
             
-            progressBar.addEventListener('input', (e) => {
-                const duration = audioPlayer.duration;
-                if (!isNaN(duration)) {
-                    const newTime = (e.target.value / 100) * duration;
-                    audioPlayer.currentTime = newTime;
-                }
-            });
+            progressBar.addEventListener('input', setProgress);
             progressBar.addEventListener('mousedown', () => isSeeking = true);
             progressBar.addEventListener('mouseup', () => isSeeking = false);
+            progressBar.addEventListener('touchstart', () => isSeeking = true);
+            progressBar.addEventListener('touchend', () => isSeeking = false);
 
             // --- Initialization ---
             function init() {
