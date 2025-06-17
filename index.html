@@ -169,8 +169,11 @@
         
         #error-message {
             text-align: center;
-            color: var(--text-secondary);
-            padding: 20px;
+            color: #ff8a80; /* More visible error color */
+            background-color: var(--tertiary-bg);
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
             display: none;
         }
 
@@ -331,8 +334,8 @@
     </header>
 
     <main class="main-content">
-        <div id="loader" class="loader"></div>
         <p id="error-message"></p>
+        <div id="loader" class="loader"></div>
         <ul id="results-list" class="results-list"></ul>
     </main>
 
@@ -370,94 +373,74 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // === [UPDATED] API Configuration ===
             const API_URL = {
-                SEARCH: 'https://saavn.dev/api/search/songs', // New Search API
-                SONG_DETAILS: 'https://saavn.dev/api/songs'  // New Song Details & Download Link API
+                SEARCH: 'https://saavn.dev/api/search/songs',
+                SONG_DETAILS: 'https://saavn.dev/api/songs'
             };
 
-            // App defaults
             const APP_DEFAULTS = {
-                DEFAULT_SEARCH: 'lagu populer 2025',
+                DEFAULT_SEARCH: 'lagu populer indonesia',
             };
 
-            // === [UPDATED] Utility functions ===
             const UTILS = {
-                formatTime: function(seconds) {
+                formatTime: (seconds) => {
                     if (isNaN(seconds)) return '0:00';
                     const minutes = Math.floor(seconds / 60);
                     const secs = Math.floor(seconds % 60);
                     return `${minutes}:${secs.toString().padStart(2, '0')}`;
                 },
-                formatSong: function(item) {
-                    // Adapt to the new API's data structure
-                    return {
-                        id: item.id || '',
-                        title: item.name || 'Judul Tidak Dikenal',
-                        artist: item.primaryArtists || 'Artis Tidak Dikenal',
-                        thumbnail: (item.image && item.image[1]?.link) || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=',
-                        duration: item.duration || 0
-                    };
-                },
-                formatSearchResults: function(items) {
-                    if (!Array.isArray(items)) return [];
-                    return items.map(item => this.formatSong(item));
-                },
-                getDownloadUrl: function(data) {
-                    // Adapt to find the download link in the new API's response
+                formatSong: (item) => ({
+                    id: item.id || '',
+                    title: item.name || 'Judul Tidak Dikenal',
+                    artist: item.primaryArtists || 'Artis Tidak Dikenal',
+                    thumbnail: (item.image && item.image[1]?.link) || 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=',
+                    duration: item.duration || 0
+                }),
+                formatSearchResults: (items) => Array.isArray(items) ? items.map(item => UTILS.formatSong(item)) : [],
+                getDownloadUrl: (data) => {
                     const songData = data?.data?.[0];
-                    if (!songData || !songData.downloadUrl) return null;
-                    
-                    // Find the best quality link (usually 320kbps)
-                    const bestQualityUrl = songData.downloadUrl.find(q => q.quality === '320kbps');
-                    return bestQualityUrl?.link || songData.downloadUrl[songData.downloadUrl.length - 1]?.link;
+                    if (!songData || !Array.isArray(songData.downloadUrl) || songData.downloadUrl.length === 0) {
+                        return null;
+                    }
+                    const quality320 = songData.downloadUrl.find(q => q.quality === '320kbps');
+                    return quality320?.link || songData.downloadUrl[songData.downloadUrl.length - 1].link;
                 }
             };
 
-            // DOM Elements
             const searchForm = document.getElementById('search-form');
             const searchInput = document.getElementById('search-input');
             const resultsList = document.getElementById('results-list');
             const loader = document.getElementById('loader');
             const errorMessage = document.getElementById('error-message');
-            
             const audioPlayer = document.getElementById('audio-player');
             const playerThumbnail = document.getElementById('player-thumbnail');
             const playerTitle = document.getElementById('player-title');
             const playerArtist = document.getElementById('player-artist');
-            
             const playPauseBtn = document.getElementById('play-pause-btn');
             const playIcon = document.getElementById('play-icon');
             const pauseIcon = document.getElementById('pause-icon');
             const prevBtn = document.getElementById('prev-btn');
             const nextBtn = document.getElementById('next-btn');
-            
             const progressBar = document.getElementById('progress-bar');
             const currentTimeLabel = document.getElementById('current-time');
             const totalDurationLabel = document.getElementById('total-duration');
             
-            // App State
             let songQueue = [];
             let currentTrackIndex = -1;
             let isSeeking = false;
 
-            // --- [UPDATED] API Functions ---
             async function searchSongs(query) {
                 showLoader(true);
                 showError(null);
                 resultsList.innerHTML = '';
                 disableAllControls(true);
                 try {
-                    // The new API uses 'query' parameter
-                    const response = await fetch(`${API_URL.SEARCH}?query=${encodeURIComponent(query)}`);
+                    const response = await fetch(`${API_URL.SEARCH}?query=${encodeURIComponent(query)}&limit=20`);
                     if (!response.ok) throw new Error(`Gagal menghubungi server: Status ${response.status}`);
-                    
                     const data = await response.json();
-                    // The results are nested under data.data.results
                     const results = data?.data?.results;
-                    if (!results || results.length === 0) {
-                       throw new Error('Tidak ada hasil yang ditemukan.');
-                    }
+                    if (!results || results.length === 0) throw new Error('Tidak ada hasil yang ditemukan.');
+                    
                     songQueue = UTILS.formatSearchResults(results);
                     renderSearchResults(songQueue);
                     disableAllControls(false);
@@ -472,36 +455,37 @@
             async function getAndPlaySong(index) {
                 if (index < 0 || index >= songQueue.length) return;
                 
+                showError(null); // Clear previous errors
                 currentTrackIndex = index;
                 const song = songQueue[index];
                 
                 highlightCurrentSong();
-                updatePlayerUI(song, true); // Update UI with loading state
+                updatePlayerUI(song, true);
 
                 try {
-                    // Fetch song details to get the download link
                     const response = await fetch(`${API_URL.SONG_DETAILS}/${song.id}`);
                     if (!response.ok) throw new Error(`Gagal mendapat detail lagu: Status ${response.status}`);
-                    
                     const data = await response.json();
                     const downloadUrl = UTILS.getDownloadUrl(data);
                     
                     if (downloadUrl) {
                         audioPlayer.src = downloadUrl;
-                        audioPlayer.play().catch(e => console.error("Gagal memutar audio:", e));
+                        audioPlayer.play().catch(e => {
+                            throw new Error("Browser memblokir pemutaran otomatis.");
+                        });
                     } else {
-                        throw new Error('Link unduhan tidak tersedia untuk lagu ini.');
+                        throw new Error('Link audio tidak tersedia untuk lagu ini.');
                     }
                 } catch (error) {
                     console.error('Playback Error:', error);
-                    updatePlayerUI(song, false);
-                    showError(`Gagal memutar "${song.title}". Mencoba lagu berikutnya...`);
-                    // Skip to the next song if one fails
-                    setTimeout(playNext, 1500);
+                    updatePlayerUI(song, false); // Revert UI from loading state
+                    // === [IMPROVEMENT] Show specific error and STOP, don't auto-skip ===
+                    showError(`Gagal memutar "${song.title}". Silakan coba lagu lain.`);
+                    // Remove auto-play next:
+                    // setTimeout(playNext, 1500); 
                 }
             }
             
-            // --- UI & Player Logic ---
             function renderSearchResults(songs) {
                 resultsList.innerHTML = '';
                 songs.forEach((song, index) => {
@@ -516,48 +500,40 @@
                         </div>
                         <span class="song-item-duration">${UTILS.formatTime(song.duration)}</span>
                     `;
-                    li.addEventListener('click', () => {
-                        getAndPlaySong(index);
-                    });
+                    li.addEventListener('click', () => getAndPlaySong(index));
                     resultsList.appendChild(li);
                 });
             }
 
             function updatePlayerUI(song, isLoading = false) {
-                 if (!song) return;
-                
+                if (!song) return;
                 playerTitle.textContent = isLoading ? 'Memuat...' : song.title;
                 playerArtist.textContent = song.artist;
                 playerThumbnail.src = song.thumbnail;
             }
-            
+
             function togglePlayPause() {
                 if (!audioPlayer.src) {
                     if (songQueue.length > 0) getAndPlaySong(0);
                     return;
                 }
-                if (audioPlayer.paused) {
-                    audioPlayer.play().catch(e => console.error("Playback failed:", e));
-                } else {
-                    audioPlayer.pause();
-                }
+                if (audioPlayer.paused) audioPlayer.play().catch(e => showError("Gagal memutar audio."));
+                else audioPlayer.pause();
             }
             
             function highlightCurrentSong() {
-                document.querySelectorAll('.song-item').forEach((item, index) => {
-                    item.classList.toggle('playing', index === currentTrackIndex);
+                document.querySelectorAll('.song-item').forEach((item, idx) => {
+                    item.classList.toggle('playing', idx === currentTrackIndex);
                 });
             }
 
             function playNext() {
-                let nextIndex = currentTrackIndex + 1;
-                if (nextIndex >= songQueue.length) nextIndex = 0;
+                let nextIndex = (currentTrackIndex + 1) % songQueue.length;
                 if (songQueue.length > 0) getAndPlaySong(nextIndex);
             }
 
             function playPrev() {
-                let prevIndex = currentTrackIndex - 1;
-                if (prevIndex < 0) prevIndex = songQueue.length - 1;
+                let prevIndex = (currentTrackIndex - 1 + songQueue.length) % songQueue.length;
                 if (songQueue.length > 0) getAndPlaySong(prevIndex);
             }
 
@@ -571,28 +547,22 @@
             }
 
             function setProgress(e) {
-                const duration = audioPlayer.duration;
-                if (isNaN(duration)) return;
-                const newTime = (e.target.value / 100) * duration;
-                audioPlayer.currentTime = newTime;
+                if (isNaN(audioPlayer.duration)) return;
+                audioPlayer.currentTime = (e.target.value / 100) * audioPlayer.duration;
             }
 
-            function showLoader(visible) {
-                loader.classList.toggle('visible', visible);
-            }
-            
+            function showLoader(visible) { loader.classList.toggle('visible', visible); }
             function showError(message) {
                 errorMessage.style.display = message ? 'block' : 'none';
                 errorMessage.textContent = message || '';
             }
-            
             function disableAllControls(disabled) {
                 playPauseBtn.disabled = disabled;
                 nextBtn.disabled = disabled;
                 prevBtn.disabled = disabled;
             }
 
-            // --- Event Listeners ---
+            // Event Listeners
             searchForm.addEventListener('submit', (e) => {
                 e.preventDefault();
                 const query = searchInput.value.trim();
@@ -607,23 +577,19 @@
                 playIcon.classList.add('hidden');
                 pauseIcon.classList.remove('hidden');
                 updatePlayerUI(songQueue[currentTrackIndex]);
+                showError(null);
             });
-
             audioPlayer.addEventListener('pause', () => {
                 playIcon.classList.remove('hidden');
                 pauseIcon.classList.add('hidden');
             });
-            
             audioPlayer.addEventListener('ended', playNext);
             audioPlayer.addEventListener('timeupdate', updateProgress);
             
             progressBar.addEventListener('input', setProgress);
             progressBar.addEventListener('mousedown', () => isSeeking = true);
             progressBar.addEventListener('mouseup', () => isSeeking = false);
-            progressBar.addEventListener('touchstart', () => isSeeking = true);
-            progressBar.addEventListener('touchend', () => isSeeking = false);
 
-            // --- Initialization ---
             function init() {
                 searchInput.value = APP_DEFAULTS.DEFAULT_SEARCH;
                 searchSongs(APP_DEFAULTS.DEFAULT_SEARCH);
